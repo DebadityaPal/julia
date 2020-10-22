@@ -157,7 +157,7 @@ function full_va_len(p)
     isempty(p) && return 0, true
     last = p[end]
     if isvarargtype(last)
-        N = unwrap_unionall(last).parameters[2]
+        N = unwrap_unionall(last).N
         if isa(N, Int)
             return length(p)::Int + N - 1, true
         end

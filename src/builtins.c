@@ -1002,6 +1002,10 @@ JL_CALLABLE(jl_f_apply_type)
         // substituting typevars (a valid_type_param check here isn't sufficient).
         return (jl_value_t*)jl_type_union(&args[1], nargs-1);
     }
+    else if (args[0] == (jl_value_t*)jl_vararg_marker_type) {
+        JL_NARGS(apply_type, 3, 3);
+        return jl_wrap_vararg(args[1], args[2]);
+    }
     else if (jl_is_unionall(args[0])) {
         for(i=1; i < nargs; i++) {
             jl_value_t *pi = args[i];
@@ -1257,7 +1261,6 @@ static void jl_set_datatype_super(jl_datatype_t *tt, jl_value_t *super)
     if (!jl_is_datatype(super) || !jl_is_abstracttype(super) ||
         tt->super != NULL ||
         tt->name == ((jl_datatype_t*)super)->name ||
-        jl_subtype(super, (jl_value_t*)jl_vararg_type) ||
         jl_is_tuple_type(super) ||
         jl_is_namedtuple_type(super) ||
         jl_subtype(super, (jl_value_t*)jl_type_type) ||
@@ -1577,7 +1580,7 @@ void jl_init_primitives(void) JL_GC_DISABLED
     add_builtin("Union", (jl_value_t*)jl_uniontype_type);
     add_builtin("TypeofBottom", (jl_value_t*)jl_typeofbottom_type);
     add_builtin("Tuple", (jl_value_t*)jl_anytuple_type);
-    add_builtin("Vararg", (jl_value_t*)jl_vararg_type);
+    add_builtin("VarargMarker", (jl_value_t*)jl_vararg_marker_type);
     add_builtin("SimpleVector", (jl_value_t*)jl_simplevector_type);
 
     add_builtin("Module", (jl_value_t*)jl_module_type);

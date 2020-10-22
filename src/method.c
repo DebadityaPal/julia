@@ -779,7 +779,7 @@ JL_DLLEXPORT void jl_method_def(jl_svec_t *argdata,
 
     for (i = 0; i < na; i++) {
         jl_value_t *elt = jl_svecref(atypes, i);
-        if (!jl_is_type(elt) && !jl_is_typevar(elt)) {
+        if (!jl_is_type(elt) && !jl_is_typevar(elt) && !jl_is_vararg_type(elt)) {
             jl_sym_t *argname = (jl_sym_t*)jl_array_ptr_ref(f->slotnames, i);
             if (argname == unused_sym)
                 jl_exceptionf(jl_argumenterror_type,

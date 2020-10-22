@@ -528,16 +528,34 @@ typedef enum {
     JL_VARARG_UNBOUND = 3
 } jl_vararg_kind_t;
 
+STATIC_INLINE int jl_is_vararg_marker(jl_value_t *v) JL_NOTSAFEPOINT
+{
+    return jl_typeof(v) == (jl_value_t*)jl_vararg_marker_type;
+}
+
 STATIC_INLINE int jl_is_vararg_type(jl_value_t *v) JL_NOTSAFEPOINT
 {
-    v = jl_unwrap_unionall(v);
-    return (jl_is_datatype(v) &&
-            ((jl_datatype_t*)(v))->name == jl_vararg_typename);
+    return jl_is_vararg_marker(jl_unwrap_unionall(v));
 }
 
 STATIC_INLINE jl_value_t *jl_unwrap_vararg(jl_value_t *v) JL_NOTSAFEPOINT
 {
-    return jl_tparam0(jl_unwrap_unionall(v));
+    assert(jl_is_vararg_type(v));
+    v = jl_unwrap_unionall(v);
+    if (jl_is_vararg_marker(v)) {
+        return ((jl_vararg_marker_t*)v)->T;
+    }
+    return jl_tparam0(v);
+}
+
+STATIC_INLINE jl_value_t *jl_unwrap_vararg_num(jl_value_t *v) JL_NOTSAFEPOINT
+{
+    assert(jl_is_vararg_type(v));
+    v = jl_unwrap_unionall(v);
+    if (jl_is_vararg_marker(v)) {
+        return ((jl_vararg_marker_t*)v)->N;
+    }
+    return jl_tparam1(v);
 }
 
 STATIC_INLINE jl_vararg_kind_t jl_vararg_kind(jl_value_t *v) JL_NOTSAFEPOINT
@@ -553,8 +571,7 @@ STATIC_INLINE jl_vararg_kind_t jl_vararg_kind(jl_value_t *v) JL_NOTSAFEPOINT
             v = ((jl_unionall_t*)v)->body;
         }
     }
-    assert(jl_is_datatype(v));
-    jl_value_t *lenv = jl_tparam1(v);
+    jl_value_t *lenv = jl_unwrap_vararg_num(v);
     if (jl_is_long(lenv))
         return JL_VARARG_INT;
     if (jl_is_typevar(lenv) && lenv != (jl_value_t*)v1 && lenv != (jl_value_t*)v2)

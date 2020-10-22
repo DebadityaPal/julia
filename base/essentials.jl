@@ -271,10 +271,9 @@ function rename_unionall(@nospecialize(u))
     return UnionAll(nv, body{nv})
 end
 
-const _va_typename = Vararg.body.body.name
 function isvarargtype(@nospecialize(t))
     t = unwrap_unionall(t)
-    return isa(t, DataType) && (t::DataType).name === _va_typename
+    return isa(t, Core.VarargMarker)
 end
 
 function isvatuple(@nospecialize(t))
@@ -289,14 +288,14 @@ end
 function unwrapva(@nospecialize(t))
     # NOTE: this returns a related type, but it's NOT a subtype of the original tuple
     t2 = unwrap_unionall(t)
-    return isvarargtype(t2) ? rewrap_unionall(t2.parameters[1], t) : t
+    return isvarargtype(t2) ? rewrap_unionall(t2.T, t) : t
 end
 
 function unconstrain_vararg_length(@nospecialize(va))
     # construct a new Vararg type where its length is unconstrained,
     # but its element type still captures any dependencies the input
     # element type may have had on the input length
-    T = unwrap_unionall(va).parameters[1]
+    T = unwrap_unionall(va).T
     return rewrap_unionall(Vararg{T}, va)
 end
 

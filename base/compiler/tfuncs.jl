@@ -449,7 +449,7 @@ function typebound_nothrow(b)
     if isType(b)
         b = unwrap_unionall(b.parameters[1])
         b === Union{} && return true
-        return !isa(b, DataType) || b.name != _va_typename
+        return !isa(b, DataType) || !isa(b, Core.VarargMarker)
     end
     return false
 end
@@ -490,7 +490,7 @@ function typeof_concrete_vararg(t::DataType)
         p = t.parameters[i]
         if i == np && isvarargtype(p)
             pp = unwrap_unionall(p)
-            if isconcretetype(pp.parameters[1]) && pp.parameters[2] isa TypeVar
+            if isconcretetype(pp.T) && pp.N isa TypeVar
                 return rewrap_unionall(Type{Tuple{t.parameters[1:np-1]..., pp}}, p)
             end
         elseif !isconcretetype(p)

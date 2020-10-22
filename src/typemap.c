@@ -28,7 +28,7 @@ static jl_value_t *jl_type_extract_name(jl_value_t *t1 JL_PROPAGATES_ROOT)
     if (jl_is_unionall(t1))
         t1 = jl_unwrap_unionall(t1);
     if (jl_is_vararg_type(t1)) {
-        return jl_type_extract_name(jl_tparam0(t1));
+        return jl_type_extract_name(jl_unwrap_vararg(t1));
     }
     else if (jl_is_typevar(t1)) {
         return jl_type_extract_name(((jl_tvar_t*)t1)->ub);
@@ -58,7 +58,7 @@ static int jl_type_extract_name_precise(jl_value_t *t1, int invariant)
     if (jl_is_unionall(t1))
         t1 = jl_unwrap_unionall(t1);
     if (jl_is_vararg_type(t1)) {
-        return jl_type_extract_name_precise(jl_tparam0(t1), invariant);
+        return jl_type_extract_name_precise(jl_unwrap_vararg(t1), invariant);
     }
     else if (jl_is_typevar(t1)) {
         return jl_type_extract_name_precise(((jl_tvar_t*)t1)->ub, 0);
@@ -144,7 +144,7 @@ static int sig_match_by_type_simple(jl_value_t **types, size_t n, jl_tupletype_t
             if (n - i != jl_unbox_long(jl_tparam1(decl)))
                 return 0;
         }
-        jl_value_t *t = jl_tparam0(decl);
+        jl_value_t *t = jl_unwrap_vararg(decl);
         if (jl_is_typevar(t))
             t = ((jl_tvar_t*)t)->ub;
         for (; i < n; i++) {

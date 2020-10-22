@@ -567,6 +567,11 @@ static void jl_serialize_value_(jl_serializer_state *s, jl_value_t *v, int as_li
         jl_serialize_value(s, ((jl_tvar_t*)v)->lb);
         jl_serialize_value(s, ((jl_tvar_t*)v)->ub);
     }
+    else if (jl_is_vararg_marker(v)) {
+        write_uint8(s->s, TAG_VARARG);
+        jl_serialize_value(s, ((jl_vararg_marker_t*)v)->T);
+        jl_serialize_value(s, ((jl_vararg_marker_t*)v)->N);
+    }
     else if (jl_is_method(v)) {
         write_uint8(s->s, TAG_METHOD);
         jl_method_t *m = (jl_method_t*)v;
@@ -1774,6 +1779,15 @@ static jl_value_t *jl_deserialize_value(jl_serializer_state *s, jl_value_t **loc
         tv->ub = jl_deserialize_value(s, &tv->ub);
         jl_gc_wb(tv, tv->ub);
         return (jl_value_t*)tv;
+    case TAG_VARARG:
+        v = jl_gc_alloc(s->ptls, sizeof(jl_vararg_marker_t), jl_vararg_marker_type);
+        jl_vararg_marker_t *vm = (jl_vararg_marker_t*)v;
+        arraylist_push(&backref_list, vm);
+        vm->T = (jl_sym_t*)jl_deserialize_value(s, NULL);
+        jl_gc_wb(vm, vm->T);
+        vm->N = jl_deserialize_value(s, &vm->N);
+        jl_gc_wb(vm, vm->N);
+        return (jl_value_t*)vm;
     case TAG_METHOD:
         return jl_deserialize_value_method(s, loc);
     case TAG_METHOD_INSTANCE:
@@ -2608,7 +2622,8 @@ void jl_init_serializer(void)
 
                      jl_bool_type, jl_linenumbernode_type, jl_pinode_type,
                      jl_upsilonnode_type, jl_type_type, jl_bottom_type, jl_ref_type,
-                     jl_pointer_type, jl_vararg_type, jl_abstractarray_type, jl_nothing_type,
+                     jl_pointer_type, jl_abstractarray_type, jl_nothing_type,
+                     jl_vararg_marker_type,
                      jl_densearray_type, jl_function_type, jl_typename_type,
                      jl_builtin_type, jl_task_type, jl_uniontype_type,
                      jl_array_any_type, jl_intrinsic_type,
@@ -2657,6 +2672,7 @@ void jl_init_serializer(void)
     deser_tag[TAG_GOTOIFNOT] = (jl_value_t*)jl_gotoifnot_type;
     deser_tag[TAG_RETURNNODE] = (jl_value_t*)jl_returnnode_type;
     deser_tag[TAG_ARGUMENT] = (jl_value_t*)jl_argument_type;
+    deser_tag[TAG_VARARG] = (jl_value_t*)jl_vararg_marker_type;
 
     intptr_t i = 0;
     while (vals[i] != NULL) {
@@ -2686,7 +2702,6 @@ void jl_init_serializer(void)
     arraylist_push(&builtin_typenames, ((jl_datatype_t*)jl_unwrap_unionall((jl_value_t*)jl_abstractarray_type))->name);
     arraylist_push(&builtin_typenames, ((jl_datatype_t*)jl_unwrap_unionall((jl_value_t*)jl_densearray_type))->name);
     arraylist_push(&builtin_typenames, jl_tuple_typename);
-    arraylist_push(&builtin_typenames, jl_vararg_typename);
     arraylist_push(&builtin_typenames, jl_namedtuple_typename);
 }
 

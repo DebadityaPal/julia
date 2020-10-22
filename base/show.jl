@@ -2214,6 +2214,14 @@ function show(io::IO, tv::TypeVar)
     nothing
 end
 
+function show(io::IO, vm::Core.VarargMarker)
+    print(io, "Vararg{")
+    show(io, vm.T)
+    print(io, ", ")
+    show(io, vm.N)
+    print(io, "}")
+end
+
 module IRShow
     const Compiler = Core.Compiler
     using Core.IR

@@ -43,7 +43,7 @@ static void *const _tags[] = {
          &jl_const_type, &jl_partial_struct_type, &jl_method_match_type,
          &jl_pinode_type, &jl_phinode_type, &jl_phicnode_type, &jl_upsilonnode_type,
          &jl_type_type, &jl_bottom_type, &jl_ref_type, &jl_pointer_type, &jl_llvmpointer_type,
-         &jl_vararg_type, &jl_abstractarray_type,
+         &jl_abstractarray_type, &jl_vararg_marker_type,
          &jl_densearray_type, &jl_nothing_type, &jl_function_type, &jl_typeofbottom_type,
          &jl_unionall_type, &jl_typename_type, &jl_builtin_type, &jl_code_info_type,
          &jl_task_type, &jl_uniontype_type, &jl_abstractstring_type,
@@ -59,7 +59,7 @@ static void *const _tags[] = {
          &jl_number_type, &jl_signed_type,
          // special typenames
          &jl_tuple_typename, &jl_pointer_typename, &jl_llvmpointer_typename, &jl_array_typename, &jl_type_typename,
-         &jl_vararg_typename, &jl_namedtuple_typename,
+         &jl_namedtuple_typename,
          &jl_vecelement_typename,
          // special exceptions
          &jl_errorexception_type, &jl_argumenterror_type, &jl_typeerror_type,
