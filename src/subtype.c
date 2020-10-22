@@ -3574,7 +3574,7 @@ static int tuple_morespecific(jl_datatype_t *cdt, jl_datatype_t *pdt, int invari
               C = Tuple{AbstractArray, Int, Array}
               we need A < B < C and A < C.
             */
-            return some_morespecific && cva && ckind == JL_VARARG_BOUND && num_occurs((jl_tvar_t*)jl_tparam1(jl_unwrap_unionall(clast)), env) > 1;
+            return some_morespecific && cva && ckind == JL_VARARG_BOUND && num_occurs((jl_tvar_t*)jl_unwrap_vararg_num(clast), env) > 1;
         }
 
         // Tuple{..., T} not more specific than Tuple{..., Vararg{S}} if S is diagonal

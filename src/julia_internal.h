@@ -589,7 +589,7 @@ STATIC_INLINE int jl_is_va_tuple(jl_datatype_t *t) JL_NOTSAFEPOINT
 STATIC_INLINE size_t jl_vararg_length(jl_value_t *v) JL_NOTSAFEPOINT
 {
     assert(jl_is_vararg_type(v));
-    jl_value_t *len = jl_tparam1(jl_unwrap_unionall(v));
+    jl_value_t *len = jl_unwrap_vararg_num(v);
     assert(jl_is_long(len));
     return jl_unbox_long(len);
 }

@@ -1130,10 +1130,10 @@ function apply_type_tfunc(@nospecialize(headtypetype), @nospecialize args...)
     elseif isconstType(headtypetype)
         headtype = headtypetype.parameters[1]
     else
-        return Type
+        return Any
     end
     if !isempty(args) && isvarargtype(args[end])
-        return Type
+        return isvarargtype(headtype) ? Any : Type
     end
     largs = length(args)
     if headtype === Union
@@ -1176,7 +1176,7 @@ function apply_type_tfunc(@nospecialize(headtypetype), @nospecialize args...)
         return allconst ? Const(ty) : Type{ty}
     end
     istuple = (headtype == Tuple)
-    if !istuple && !isa(headtype, UnionAll)
+    if !istuple && !isa(headtype, UnionAll) && !isvarargtype(headtype)
         return Union{}
     end
     uw = unwrap_unionall(headtype)
@@ -1193,7 +1193,8 @@ function apply_type_tfunc(@nospecialize(headtypetype), @nospecialize args...)
             aip1 = ai.parameters[1]
             canconst &= !has_free_typevars(aip1)
             push!(tparams, aip1)
-        elseif isa(ai, Const) && (isa(ai.val, Type) || isa(ai.val, TypeVar) || valid_tparam(ai.val))
+        elseif isa(ai, Const) && (isa(ai.val, Type) || isa(ai.val, TypeVar) ||
+                                  valid_tparam(ai.val) || (istuple && isa(ai.val, Core.VarargMarker)))
             push!(tparams, ai.val)
         elseif isa(ai, PartialTypeVar)
             canconst = false
@@ -1259,11 +1260,11 @@ function apply_type_tfunc(@nospecialize(headtypetype), @nospecialize args...)
     catch ex
         # type instantiation might fail if one of the type parameters
         # doesn't match, which could happen if a type estimate is too coarse
-        return Type{<:headtype}
+        return isvarargtype(headtype) ? Any : Type{<:headtype}
     end
     !uncertain && canconst && return Const(appl)
-    if isvarargtype(headtype)
-        return Type
+    if isvarargtype(appl)
+        return Any
     end
     if istuple
         return Type{<:appl}

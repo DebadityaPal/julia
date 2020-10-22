@@ -1578,8 +1578,7 @@ function constrains_param(var::TypeVar, @nospecialize(typ), covariant::Bool)
                 lastp = typ.parameters[fc]
                 vararg = Base.unwrap_unionall(lastp)
                 if vararg isa Core.VarargMarker
-                    N = vararg.parameters[2]
-                    constrains_param(var, N, covariant) && return true
+                    constrains_param(var, vararg.N, covariant) && return true
                     # T = vararg.parameters[1] doesn't constrain var
                 else
                     constrains_param(var, lastp, covariant) && return true

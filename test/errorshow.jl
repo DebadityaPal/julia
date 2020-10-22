@@ -316,7 +316,7 @@ let undefvar
     err_str = @except_str TypeWithIntParam{Any} TypeError
     @test err_str == "TypeError: in TypeWithIntParam, in T, expected T<:Integer, got Type{Any}"
     err_str = @except_str Type{Vararg} TypeError
-    @test err_str == "TypeError: in Type, in parameter, expected Type, got Vararg"
+    @test err_str == "TypeError: in Type, in parameter, expected Type, got Vararg{T, N} where N where T"
 
     err_str = @except_str mod(1,0) DivideError
     @test err_str == "DivideError: integer division error"

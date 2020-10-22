@@ -36,8 +36,8 @@ function argtype_decl(env, n, @nospecialize(sig::DataType), i::Int, nargs, isva:
                 t = t.body
             end
         end
-        ut = unwrap_unionall(t)
-        tt, tn = ut.parameters[1], ut.parameters[2]
+        ut = unwrap_unionall(t)::Core.VarargMarker
+        tt, tn = ut.T, ut.N
         if isa(tn, TypeVar) && (tn === v1 || tn === v2)
             if tt === Any || (isa(tt, TypeVar) && (tt === v1 || tt === v2))
                 return string(s, "..."), ""

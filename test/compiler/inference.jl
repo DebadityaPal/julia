@@ -1829,8 +1829,8 @@ end
 @test Core.Compiler.return_type(Core.apply_type, Tuple{Type{Union},Any,Any}) == Type
 @test Core.Compiler.return_type(Core.apply_type, Tuple{Type{Union},Int}) == Union{}
 @test Core.Compiler.return_type(Core.apply_type, Tuple{Type{Union},Any,Int}) == Union{}
-@test Core.Compiler.return_type(Core.apply_type, Tuple{Any}) == Type
-@test Core.Compiler.return_type(Core.apply_type, Tuple{Any,Any}) == Type
+@test Core.Compiler.return_type(Core.apply_type, Tuple{Any}) == Any
+@test Core.Compiler.return_type(Core.apply_type, Tuple{Any,Any}) == Any
 
 # PR 27351, make sure optimized type intersection for method invalidation handles typevars
 
@@ -2834,9 +2834,9 @@ end
 @test Core.Compiler.return_type(apply26826, Tuple{typeof(fieldtype), Any, Any, Vararg}) == Union{Type, TypeVar}
 @test Core.Compiler.return_type(apply26826, Tuple{typeof(fieldtype), Any, Any, Any, Vararg}) == Union{Type, TypeVar}
 @test Core.Compiler.return_type(apply26826, Tuple{typeof(fieldtype), Any, Any, Any, Any, Vararg}) == Union{}
-@test Core.Compiler.return_type(apply26826, Tuple{typeof(Core.apply_type), Vararg}) == Type
-@test Core.Compiler.return_type(apply26826, Tuple{typeof(Core.apply_type), Any, Vararg}) == Type
-@test Core.Compiler.return_type(apply26826, Tuple{typeof(Core.apply_type), Any, Any, Vararg}) == Type
+@test Core.Compiler.return_type(apply26826, Tuple{typeof(Core.apply_type), Vararg}) == Any
+@test Core.Compiler.return_type(apply26826, Tuple{typeof(Core.apply_type), Any, Vararg}) == Any
+@test Core.Compiler.return_type(apply26826, Tuple{typeof(Core.apply_type), Any, Any, Vararg}) == Any
 f_apply_cglobal(args...) = cglobal(args...)
 @test Core.Compiler.return_type(f_apply_cglobal, Tuple{Vararg{Type{Int}}}) == Ptr
 @test Core.Compiler.return_type(f_apply_cglobal, Tuple{Any, Vararg{Type{Int}}}) == Ptr
