@@ -196,7 +196,7 @@ function unioncomplexity(t::DataType)
     return c
 end
 unioncomplexity(u::UnionAll) = max(unioncomplexity(u.body), unioncomplexity(u.var.ub))
-unioncomplexity(t::Core.VarargMarker) = unioncomplexity(t.T)
+unioncomplexity(t::Core.VarargMarker) = isdefined(t, :T) ? unioncomplexity(t.T) : 0
 unioncomplexity(@nospecialize(x)) = 0
 
 function improvable_via_constant_propagation(@nospecialize(t))

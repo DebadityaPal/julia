@@ -255,6 +255,14 @@ function rewrap_unionall(@nospecialize(t), @nospecialize(u))
     return UnionAll(u.var, rewrap_unionall(t, u.body))
 end
 
+function rewrap_unionall(t::Core.VarargMarker, u)
+    isdefined(t, :T) || return t
+    if !isdefined(t, :N) || (isdefined(t, :N) && t.N == u.var)
+        return Vararg{rewrap_unionall(t.T, u)}
+    end
+    Vararg{rewrap_unionall(t.T, u), t.N}
+end
+
 # replace TypeVars in all enclosing UnionAlls with fresh TypeVars
 function rename_unionall(@nospecialize(u))
     if !isa(u, UnionAll)
@@ -272,7 +280,6 @@ function rename_unionall(@nospecialize(u))
 end
 
 function isvarargtype(@nospecialize(t))
-    t = unwrap_unionall(t)
     return isa(t, Core.VarargMarker)
 end
 
@@ -285,18 +292,14 @@ function isvatuple(@nospecialize(t))
     return false
 end
 
-function unwrapva(@nospecialize(t))
-    # NOTE: this returns a related type, but it's NOT a subtype of the original tuple
-    t2 = unwrap_unionall(t)
-    return isvarargtype(t2) ? rewrap_unionall(t2.T, t) : t
-end
+unwrapva(t::Core.VarargMarker) = isdefined(t, :T) ? t.T : Any
+unwrapva(@nospecialize(t)) = t
 
-function unconstrain_vararg_length(@nospecialize(va))
+function unconstrain_vararg_length(va::Core.VarargMarker)
     # construct a new Vararg type where its length is unconstrained,
     # but its element type still captures any dependencies the input
     # element type may have had on the input length
-    T = unwrap_unionall(va).T
-    return rewrap_unionall(Vararg{T}, va)
+    return Vararg{unwrapva(va)}
 end
 
 typename(a) = error("typename does not apply to this type")

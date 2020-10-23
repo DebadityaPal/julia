@@ -2215,11 +2215,16 @@ function show(io::IO, tv::TypeVar)
 end
 
 function show(io::IO, vm::Core.VarargMarker)
-    print(io, "Vararg{")
-    show(io, vm.T)
-    print(io, ", ")
-    show(io, vm.N)
-    print(io, "}")
+    print(io, "Vararg")
+    if isdefined(vm, :T)
+        print(io, "{")
+        show(io, vm.T)
+        if isdefined(vm, :N)
+            print(io, ", ")
+            show(io, vm.N)
+        end
+        print(io, "}")
+    end
 end
 
 module IRShow

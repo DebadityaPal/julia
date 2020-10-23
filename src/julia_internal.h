@@ -469,7 +469,7 @@ jl_datatype_t *jl_new_abstracttype(jl_value_t *name, jl_module_t *module,
 jl_datatype_t *jl_new_uninitialized_datatype(void);
 void jl_precompute_memoized_dt(jl_datatype_t *dt, int cacheable);
 jl_datatype_t *jl_wrap_Type(jl_value_t *t);  // x -> Type{x}
-jl_value_t *jl_wrap_vararg(jl_value_t *t, jl_value_t *n);
+jl_vararg_marker_t *jl_wrap_vararg(jl_value_t *t, jl_value_t *n);
 void jl_reinstantiate_inner_types(jl_datatype_t *t);
 jl_datatype_t *jl_lookup_cache_type_(jl_datatype_t *type);
 void jl_cache_type_(jl_datatype_t *type);
@@ -543,7 +543,8 @@ STATIC_INLINE jl_value_t *jl_unwrap_vararg(jl_value_t *v) JL_NOTSAFEPOINT
     assert(jl_is_vararg_type(v));
     v = jl_unwrap_unionall(v);
     if (jl_is_vararg_marker(v)) {
-        return ((jl_vararg_marker_t*)v)->T;
+        jl_value_t *T = ((jl_vararg_marker_t*)v)->T;
+        return T ? T : (jl_value_t*)jl_any_type;
     }
     return jl_tparam0(v);
 }
@@ -560,23 +561,14 @@ STATIC_INLINE jl_value_t *jl_unwrap_vararg_num(jl_value_t *v) JL_NOTSAFEPOINT
 
 STATIC_INLINE jl_vararg_kind_t jl_vararg_kind(jl_value_t *v) JL_NOTSAFEPOINT
 {
-    if (!jl_is_vararg_type(v))
+    if (!jl_is_vararg_marker(v))
         return JL_VARARG_NONE;
-    jl_tvar_t *v1=NULL, *v2=NULL;
-    if (jl_is_unionall(v)) {
-        v1 = ((jl_unionall_t*)v)->var;
-        v = ((jl_unionall_t*)v)->body;
-        if (jl_is_unionall(v)) {
-            v2 = ((jl_unionall_t*)v)->var;
-            v = ((jl_unionall_t*)v)->body;
-        }
-    }
-    jl_value_t *lenv = jl_unwrap_vararg_num(v);
-    if (jl_is_long(lenv))
+    jl_vararg_marker_t *vm = (jl_vararg_marker_t *)v;
+    if (!vm->N)
+        return JL_VARARG_UNBOUND;
+    if (jl_is_long(vm->N))
         return JL_VARARG_INT;
-    if (jl_is_typevar(lenv) && lenv != (jl_value_t*)v1 && lenv != (jl_value_t*)v2)
-        return JL_VARARG_BOUND;
-    return JL_VARARG_UNBOUND;
+    return JL_VARARG_BOUND;
 }
 
 STATIC_INLINE int jl_is_va_tuple(jl_datatype_t *t) JL_NOTSAFEPOINT

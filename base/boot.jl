@@ -253,7 +253,7 @@ TypeVar(n::Symbol, @nospecialize(lb), @nospecialize(ub)) = _typevar(n, lb, ub)
 
 UnionAll(v::TypeVar, @nospecialize(t)) = ccall(:jl_type_unionall, Any, (Any, Any), v, t)
 
-const Vararg{T, N} = VarargMarker{T, N}
+const Vararg = ccall(:jl_toplevel_eval_in, Any, (Any, Any), Core, _expr(:new, VarargMarker))
 
 # let the compiler assume that calling Union{} as a constructor does not need
 # to be considered ever (which comes up often as Type{<:T})

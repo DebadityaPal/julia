@@ -284,7 +284,7 @@ code_llvm(devnull, invoke_g10878, ())
 @test isa(code_typed(promote,(Any,Any,Vararg{Any})), Array)
 find_tvar10930(sig::Type{T}) where {T<:Tuple} = 1
 function find_tvar10930(arg)
-    if arg<:Tuple
+    if isa(arg, Type) && arg<:Tuple
         find_tvar10930(arg[random_var_name])
     end
     return 1
@@ -627,7 +627,7 @@ function maybe_vararg_tuple_1()
 end
 @test Type{Tuple{Vararg{Int}}} <: Base.return_types(maybe_vararg_tuple_1, ())[1]
 function maybe_vararg_tuple_2()
-    x = Type[Vararg{Int}][1]
+    x = [Vararg{Int}][1]
     Tuple{x}
 end
 @test Type{Tuple{Vararg{Int}}} <: Base.return_types(maybe_vararg_tuple_2, ())[1]
@@ -2912,7 +2912,7 @@ end
 end
 
 # issue #37638
-@test !(Core.Compiler.return_type(() -> (nothing, Any[]...)[2], Tuple{}) <: Vararg)
+@test isa(Core.Compiler.return_type(() -> (nothing, Any[]...)[2], Tuple{}), Type)
 
 # Issue #37943
 f37943(x::Any, i::Int) = getfield((x::Pair{false, Int}), i)

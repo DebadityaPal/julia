@@ -1002,9 +1002,15 @@ JL_CALLABLE(jl_f_apply_type)
         // substituting typevars (a valid_type_param check here isn't sufficient).
         return (jl_value_t*)jl_type_union(&args[1], nargs-1);
     }
-    else if (args[0] == (jl_value_t*)jl_vararg_marker_type) {
-        JL_NARGS(apply_type, 3, 3);
-        return jl_wrap_vararg(args[1], args[2]);
+    else if (jl_is_vararg_marker(args[0])) {
+        jl_vararg_marker_t *vm = (jl_vararg_marker_t*)args[0];
+        if (!vm->T) {
+            JL_NARGS(apply_type, 2, 3);
+            return (jl_value_t*)jl_wrap_vararg(args[1], nargs == 3 ? args[2] : NULL);
+        } else if (!vm->N) {
+            JL_NARGS(apply_type, 2, 2);
+            return (jl_value_t*)jl_wrap_vararg(vm->T, args[1]);
+        }
     }
     else if (jl_is_unionall(args[0])) {
         for(i=1; i < nargs; i++) {

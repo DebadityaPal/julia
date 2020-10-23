@@ -1968,7 +1968,7 @@ let a(; b) = b
 end
 
 # issue #33987
-f33987(args::(Vararg{Any, N} where N); kwargs...) = args
+f33987(args::Vararg{Any, N}; kwargs...) where N = args
 @test f33987(1,2,3) === (1,2,3)
 
 macro id_for_kwarg(x); x; end

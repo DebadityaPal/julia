@@ -47,7 +47,7 @@ function is_derived_type(@nospecialize(t), @nospecialize(c), mindepth::Int)
         # also handle the var here, since this construct bounds the mindepth to the smallest possible value
         return is_derived_type(t, c.var.ub, mindepth) || is_derived_type(t, c.body, mindepth)
     elseif isa(c, Core.VarargMarker)
-        return is_derived_type(t, c.T, mindepth)
+        return is_derived_type(t, unwrapva(c), mindepth)
     elseif isa(c, DataType)
         if mindepth > 0
             mindepth -= 1
@@ -122,10 +122,9 @@ function _limit_type_size(@nospecialize(t), @nospecialize(c), sources::SimpleVec
         end
     elseif isa(t, Core.VarargMarker)
         isa(c, Core.VarargMarker) || return Vararg
-        VaT = _limit_type_size(t.T, c.T, sources, depth + 1, 0)
-        N = t.N
-        if isa(N, TypeVar) || N === c.N
-            return Vararg{VaT, N}
+        VaT = _limit_type_size(unwrapva(t), unwrapva(c), sources, depth + 1, 0)
+        if isdefined(t, :N) && (isa(t.N, TypeVar) || (isdefined(c, :N) && t.N === c.N))
+            return Vararg{VaT, t.N}
         end
         return Vararg{VaT}
     elseif isa(t, DataType)

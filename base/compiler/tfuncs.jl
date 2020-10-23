@@ -489,9 +489,8 @@ function typeof_concrete_vararg(t::DataType)
     for i = 1:np
         p = t.parameters[i]
         if i == np && isvarargtype(p)
-            pp = unwrap_unionall(p)
-            if isconcretetype(pp.T) && pp.N isa TypeVar
-                return rewrap_unionall(Type{Tuple{t.parameters[1:np-1]..., pp}}, p)
+            if isdefined(p, :T) && !isdefined(p, :N) && isconcretetype(p.T)
+                return Type{Tuple{t.parameters[1:np-1]..., Vararg{p.T, N}}} where N
             end
         elseif !isconcretetype(p)
             break
@@ -555,18 +554,32 @@ function typeassert_type_instance(@nospecialize(v), @nospecialize(t))
         widev = widenconst(v)
         if widev <: t
             return v
-        elseif typeintersect(widev, t) === Bottom
+        end
+        ti = typeintersect(widev, t)
+        if ti === Bottom
             return Bottom
         end
         @assert widev <: Tuple
         new_fields = Vector{Any}(undef, length(v.fields))
         for i = 1:length(new_fields)
-            new_fields[i] = typeassert_type_instance(v.fields[i], getfield_tfunc(t, Const(i)))
-            if new_fields[i] === Bottom
-                return Bottom
+            if isa(v.fields[i], Core.VarargMarker)
+                new_fields[i] = v.fields[i]
+            else
+                new_fields[i] = typeassert_type_instance(v.fields[i], getfield_tfunc(t, Const(i)))
+                if new_fields[i] === Bottom
+                    return Bottom
+                end
             end
         end
-        return tuple_tfunc(new_fields)
+        tt = tuple_tfunc(new_fields)
+        if isa(tt, PartialStruct)
+            if !(widenconst(tt) <: ti)
+                return PartialStruct(ti, tt.fields)
+            end
+        elseif !(tt <: ti)
+            return ti
+        end
+        return tt
     elseif isa(v, Conditional)
         if !(Bool <: t)
             return Bottom
@@ -1133,7 +1146,7 @@ function apply_type_tfunc(@nospecialize(headtypetype), @nospecialize args...)
         return Any
     end
     if !isempty(args) && isvarargtype(args[end])
-        return isvarargtype(headtype) ? Any : Type
+        return isvarargtype(headtype) ? Core.VarargMarker : Type
     end
     largs = length(args)
     if headtype === Union
@@ -1175,7 +1188,7 @@ function apply_type_tfunc(@nospecialize(headtypetype), @nospecialize args...)
         end
         return allconst ? Const(ty) : Type{ty}
     end
-    istuple = (headtype == Tuple)
+    istuple = isa(headtype, Type) && (headtype == Tuple)
     if !istuple && !isa(headtype, UnionAll) && !isvarargtype(headtype)
         return Union{}
     end
@@ -1260,11 +1273,11 @@ function apply_type_tfunc(@nospecialize(headtypetype), @nospecialize args...)
     catch ex
         # type instantiation might fail if one of the type parameters
         # doesn't match, which could happen if a type estimate is too coarse
-        return isvarargtype(headtype) ? Any : Type{<:headtype}
+        return isvarargtype(headtype) ? Core.VarargMarker : Type{<:headtype}
     end
     !uncertain && canconst && return Const(appl)
     if isvarargtype(appl)
-        return Any
+        return Core.VarargMarker
     end
     if istuple
         return Type{<:appl}
@@ -1316,7 +1329,7 @@ function tuple_tfunc(atypes::Vector{Any})
         x = atypes[i]
         # TODO ignore singleton Const (don't forget to update cache logic if you implement this)
         if !anyinfo
-            anyinfo = !isa(x, Type) || isType(x)
+            anyinfo = (!isa(x, Type) && !isvarargtype(x)) || isType(x)
         end
         if isa(x, Const)
             params[i] = typeof(x.val)
