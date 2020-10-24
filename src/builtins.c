@@ -897,7 +897,7 @@ static jl_value_t *get_fieldtype(jl_value_t *t, jl_value_t *f, int dothrow)
     int nf = jl_svec_len(types);
     if (nf > 0 && field_index >= nf-1 && st->name == jl_tuple_typename) {
         jl_value_t *ft = jl_field_type(st, nf-1);
-        if (jl_is_vararg_type(ft))
+        if (jl_is_vararg_marker(ft))
             return jl_unwrap_vararg(ft);
     }
     if (field_index < 0 || field_index >= nf) {
@@ -972,7 +972,7 @@ static int valid_type_param(jl_value_t *v)
         }
         return 1;
     }
-    if (jl_is_vararg_type(v))
+    if (jl_is_vararg_marker(v))
         return 0;
     // TODO: maybe more things
     return jl_is_type(v) || jl_is_typevar(v) || jl_is_symbol(v) || jl_isbits(jl_typeof(v));
@@ -987,7 +987,7 @@ JL_CALLABLE(jl_f_apply_type)
             jl_value_t *pi = args[i];
             // TODO: should possibly only allow Types and TypeVars, but see
             // https://github.com/JuliaLang/julia/commit/85f45974a581ab9af955bac600b90d9ab00f093b#commitcomment-13041922
-            if (jl_is_vararg_type(pi)) {
+            if (jl_is_vararg_marker(pi)) {
                 if (i != nargs-1)
                     jl_type_error_rt("Tuple", "non-final parameter", (jl_value_t*)jl_type_type, pi);
             }
@@ -1129,9 +1129,9 @@ JL_CALLABLE(jl_f__expr)
 // Typevar constructor for internal use
 JL_DLLEXPORT jl_tvar_t *jl_new_typevar(jl_sym_t *name, jl_value_t *lb, jl_value_t *ub)
 {
-    if ((lb != jl_bottom_type && !jl_is_type(lb) && !jl_is_typevar(lb)) || jl_is_vararg_type(lb))
+    if (lb != jl_bottom_type && !jl_is_type(lb) && !jl_is_typevar(lb))
         jl_type_error_rt("TypeVar", "lower bound", (jl_value_t *)jl_type_type, lb);
-    if ((ub != (jl_value_t *)jl_any_type && !jl_is_type(ub) && !jl_is_typevar(ub)) || jl_is_vararg_type(ub))
+    if (ub != (jl_value_t *)jl_any_type && !jl_is_type(ub) && !jl_is_typevar(ub))
         jl_type_error_rt("TypeVar", "upper bound", (jl_value_t *)jl_type_type, ub);
     jl_ptls_t ptls = jl_get_ptls_states();
     jl_tvar_t *tv = (jl_tvar_t *)jl_gc_alloc(ptls, sizeof(jl_tvar_t), jl_tvar_type);
@@ -1319,7 +1319,7 @@ JL_CALLABLE(jl_f__typebody)
         size_t nf = jl_svec_len(ft);
         for (size_t i = 0; i < nf; i++) {
             jl_value_t *elt = jl_svecref(ft, i);
-            if ((!jl_is_type(elt) && !jl_is_typevar(elt)) || jl_is_vararg_type(elt)) {
+            if (!jl_is_type(elt) && !jl_is_typevar(elt)) {
                 jl_type_error_rt(jl_symbol_name(dt->name->name),
                                  "type definition",
                                  (jl_value_t*)jl_type_type, elt);

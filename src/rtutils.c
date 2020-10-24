@@ -1187,7 +1187,7 @@ JL_DLLEXPORT size_t jl_static_show_func_sig(JL_STREAM *s, jl_value_t *type) JL_N
             n += jl_printf(s, ", ");
         }
         else {
-            if (jl_is_vararg_type(tp)) {
+            if (jl_is_vararg_marker(tp)) {
                 n += jl_static_show(s, jl_unwrap_vararg(tp));
                 n += jl_printf(s, "...");
             }

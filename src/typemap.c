@@ -27,7 +27,7 @@ static jl_value_t *jl_type_extract_name(jl_value_t *t1 JL_PROPAGATES_ROOT)
 {
     if (jl_is_unionall(t1))
         t1 = jl_unwrap_unionall(t1);
-    if (jl_is_vararg_type(t1)) {
+    if (jl_is_vararg_marker(t1)) {
         return jl_type_extract_name(jl_unwrap_vararg(t1));
     }
     else if (jl_is_typevar(t1)) {
@@ -57,7 +57,7 @@ static int jl_type_extract_name_precise(jl_value_t *t1, int invariant)
 {
     if (jl_is_unionall(t1))
         t1 = jl_unwrap_unionall(t1);
-    if (jl_is_vararg_type(t1)) {
+    if (jl_is_vararg_marker(t1)) {
         return jl_type_extract_name_precise(jl_unwrap_vararg(t1), invariant);
     }
     else if (jl_is_typevar(t1)) {
@@ -646,14 +646,14 @@ static jl_typemap_entry_t *jl_typemap_entry_assoc_by_type(
     jl_value_t *unw = jl_unwrap_unionall((jl_value_t*)types);
     int isua = jl_is_unionall(types);
     size_t n = jl_nparams(unw);
-    int typesisva = n == 0 ? 0 : jl_is_vararg_type(jl_tparam(unw, n-1));
+    int typesisva = n == 0 ? 0 : jl_is_vararg_marker(jl_tparam(unw, n-1));
     for (; ml != (void*)jl_nothing; ml = jl_atomic_load_relaxed(&ml->next)) {
         size_t lensig = jl_nparams(jl_unwrap_unionall((jl_value_t*)ml->sig));
         if (lensig == n || (ml->va && lensig <= n+1)) {
             int resetenv = 0, ismatch = 1;
             if (ml->simplesig != (void*)jl_nothing && !isua) {
                 size_t lensimplesig = jl_nparams(ml->simplesig);
-                int isva = lensimplesig > 0 && jl_is_vararg_type(jl_tparam(ml->simplesig, lensimplesig - 1));
+                int isva = lensimplesig > 0 && jl_is_vararg_marker(jl_tparam(ml->simplesig, lensimplesig - 1));
                 if (lensig == n || (isva && lensimplesig <= n + 1))
                     ismatch = sig_match_by_type_simple(jl_svec_data(((jl_datatype_t*)types)->parameters), n,
                                                        ml->simplesig, lensimplesig, isva);
@@ -725,8 +725,8 @@ static jl_typemap_entry_t *jl_typemap_entry_lookup_by_type(
         jl_value_t *b = jl_unwrap_unionall((jl_value_t*)ml->sig);
         size_t na = jl_nparams(a);
         size_t nb = jl_nparams(b);
-        int va_a = na > 0 && jl_is_vararg_type(jl_tparam(a, na - 1));
-        int va_b = nb > 0 && jl_is_vararg_type(jl_tparam(b, nb - 1));
+        int va_a = na > 0 && jl_is_vararg_marker(jl_tparam(a, na - 1));
+        int va_b = nb > 0 && jl_is_vararg_marker(jl_tparam(b, nb - 1));
         if (!va_a && !va_b) {
             if (na != nb)
                 continue;
@@ -769,7 +769,7 @@ jl_typemap_entry_t *jl_typemap_assoc_by_type(
         // compute the type at offset `offs` into `types`, which may be a Vararg
         if (l <= offs + 1) {
             ty = jl_tparam(ttypes, l - 1);
-            if (jl_is_vararg_type(ty)) {
+            if (jl_is_vararg_marker(ty)) {
                 ty = jl_unwrap_vararg(ty);
                 isva = 1;
             }
@@ -952,7 +952,7 @@ jl_typemap_entry_t *jl_typemap_entry_assoc_exact(jl_typemap_entry_t *ml, jl_valu
         if (lensig == n || (ml->va && lensig <= n+1)) {
             if (ml->simplesig != (void*)jl_nothing) {
                 size_t lensimplesig = jl_nparams(ml->simplesig);
-                int isva = lensimplesig > 0 && jl_is_vararg_type(jl_tparam(ml->simplesig, lensimplesig - 1));
+                int isva = lensimplesig > 0 && jl_is_vararg_marker(jl_tparam(ml->simplesig, lensimplesig - 1));
                 if (lensig == n || (isva && lensimplesig <= n + 1)) {
                     if (!sig_match_simple(arg1, args, n, jl_svec_data(ml->simplesig->parameters), isva, lensimplesig))
                         continue;
@@ -1185,7 +1185,7 @@ static void jl_typemap_level_insert_(
     int isva = 0;
     if (l <= offs + 1) {
         t1 = jl_tparam(ttypes, l - 1);
-        if (jl_is_vararg_type(t1)) {
+        if (jl_is_vararg_marker(t1)) {
             isva = 1;
             t1 = jl_unwrap_vararg(t1);
         }
@@ -1262,7 +1262,7 @@ jl_typemap_entry_t *jl_typemap_alloc(
             isleafsig = 0; // Type{} may have a higher priority than a kind
         else if (jl_is_type_type(decl))
             isleafsig = 0; // Type{} may need special processing to compute the match
-        else if (jl_is_vararg_type(decl))
+        else if (jl_is_vararg_marker(decl))
             isleafsig = 0; // makes iteration easier when the endpoints are the same
         else if (decl == (jl_value_t*)jl_any_type)
             isleafsig = 0; // Any needs to go in the general cache

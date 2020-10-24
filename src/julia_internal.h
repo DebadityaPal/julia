@@ -533,31 +533,20 @@ STATIC_INLINE int jl_is_vararg_marker(jl_value_t *v) JL_NOTSAFEPOINT
     return jl_typeof(v) == (jl_value_t*)jl_vararg_marker_type;
 }
 
-STATIC_INLINE int jl_is_vararg_type(jl_value_t *v) JL_NOTSAFEPOINT
+STATIC_INLINE jl_value_t *jl_unwrap_vararg(jl_vararg_marker_t *v JL_PROPAGATES_ROOT) JL_NOTSAFEPOINT
 {
-    return jl_is_vararg_marker(jl_unwrap_unionall(v));
+    assert(jl_is_vararg_marker((jl_value_t*)v));
+    jl_value_t *T = ((jl_vararg_marker_t*)v)->T;
+    return T ? T : (jl_value_t*)jl_any_type;
 }
+#define jl_unwrap_vararg(v) (jl_unwrap_vararg)((jl_vararg_marker_t *)v)
 
-STATIC_INLINE jl_value_t *jl_unwrap_vararg(jl_value_t *v JL_PROPAGATES_ROOT) JL_NOTSAFEPOINT
+STATIC_INLINE jl_value_t *jl_unwrap_vararg_num(jl_vararg_marker_t *v JL_PROPAGATES_ROOT) JL_NOTSAFEPOINT
 {
-    assert(jl_is_vararg_type(v));
-    v = jl_unwrap_unionall(v);
-    if (jl_is_vararg_marker(v)) {
-        jl_value_t *T = ((jl_vararg_marker_t*)v)->T;
-        return T ? T : (jl_value_t*)jl_any_type;
-    }
-    return jl_tparam0(v);
+    assert(jl_is_vararg_marker((jl_value_t*)v));
+    return ((jl_vararg_marker_t*)v)->N;
 }
-
-STATIC_INLINE jl_value_t *jl_unwrap_vararg_num(jl_value_t *v JL_PROPAGATES_ROOT) JL_NOTSAFEPOINT
-{
-    assert(jl_is_vararg_type(v));
-    v = jl_unwrap_unionall(v);
-    if (jl_is_vararg_marker(v)) {
-        return ((jl_vararg_marker_t*)v)->N;
-    }
-    return jl_tparam1(v);
-}
+#define jl_unwrap_vararg_num(v) (jl_unwrap_vararg_num)((jl_vararg_marker_t *)v)
 
 STATIC_INLINE jl_vararg_kind_t jl_vararg_kind(jl_value_t *v) JL_NOTSAFEPOINT
 {
@@ -575,12 +564,12 @@ STATIC_INLINE int jl_is_va_tuple(jl_datatype_t *t) JL_NOTSAFEPOINT
 {
     assert(jl_is_tuple_type(t));
     size_t l = jl_svec_len(t->parameters);
-    return (l>0 && jl_is_vararg_type(jl_tparam(t,l-1)));
+    return (l>0 && jl_is_vararg_marker(jl_tparam(t,l-1)));
 }
 
 STATIC_INLINE size_t jl_vararg_length(jl_value_t *v) JL_NOTSAFEPOINT
 {
-    assert(jl_is_vararg_type(v));
+    assert(jl_is_vararg_marker(v));
     jl_value_t *len = jl_unwrap_vararg_num(v);
     assert(jl_is_long(len));
     return jl_unbox_long(len);

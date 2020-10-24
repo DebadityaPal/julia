@@ -225,10 +225,8 @@ static int obviously_egal(jl_value_t *a, jl_value_t *b)
     if (jl_is_vararg_marker(a)) {
         jl_vararg_marker_t *vma = (jl_vararg_marker_t *)a;
         jl_vararg_marker_t *vmb = (jl_vararg_marker_t *)b;
-        jl_value_t *vmaT = vma->T ? vma->T : jl_any_type;
-        jl_value_t *vmbT = vmb->T ? vmb->T : jl_any_type;
-        return obviously_egal(vmaT, vmbT) && ((!vma->N && !vmb->N) ||
-            (vma->N && vmb->N && obviously_egal(vma->N, vmb->N)));
+        return obviously_egal(jl_unwrap_vararg(vma), jl_unwrap_vararg(vmb)) &&
+            ((!vma->N && !vmb->N) || (vma->N && vmb->N && obviously_egal(vma->N, vmb->N)));
     }
     if (jl_is_typevar(a)) return 0;
     return !jl_is_type(a) && jl_egal(a,b);
@@ -415,7 +413,7 @@ static jl_value_t *simple_join(jl_value_t *a, jl_value_t *b)
         return b;
     if (b == jl_bottom_type || a == (jl_value_t*)jl_any_type)
         return a;
-    if (!(jl_is_type(a) || jl_is_typevar(a) || jl_is_vararg_type(a)) || !(jl_is_type(b) || jl_is_typevar(b) || jl_is_vararg_type(b)))
+    if (!(jl_is_type(a) || jl_is_typevar(a)) || !(jl_is_type(b) || jl_is_typevar(b)))
         return (jl_value_t*)jl_any_type;
     if (jl_is_uniontype(a) && in_union(a, b))
         return a;
@@ -849,26 +847,12 @@ static int subtype_unionall(jl_value_t *t, jl_unionall_t *u, jl_stenv_t *e, int8
     return res;
 }
 
-// unwrap <=1 layers of UnionAlls, leaving the var in *p1 the body
-static jl_datatype_t *unwrap_1_unionall(jl_value_t *t, jl_tvar_t **p1) JL_NOTSAFEPOINT
-{
-    assert(t);
-    if (jl_is_unionall(t)) {
-        *p1 = ((jl_unionall_t*)t)->var;
-        t = ((jl_unionall_t*)t)->body;
-    }
-    assert(jl_is_datatype(t) || jl_is_vararg_marker(t));
-    return (jl_datatype_t*)t;
-}
-
 // check n <: (length of vararg type v)
 static int check_vararg_length(jl_value_t *v, ssize_t n, jl_stenv_t *e)
 {
-    jl_tvar_t *va_p1=NULL;
-    jl_value_t *tail = unwrap_1_unionall(v, &va_p1);
-    jl_value_t *N = jl_unwrap_vararg_num(tail);
+    jl_value_t *N = jl_unwrap_vararg_num(v);
     // only do the check if N is free in the tuple type's last parameter
-    if (N != (jl_value_t*)va_p1) {
+    if (N) {
         jl_value_t *nn = jl_box_long(n);
         JL_GC_PUSH1(&nn);
         e->invdepth++;
@@ -898,13 +882,8 @@ struct subtype_tuple_env {
 
 static int subtype_tuple_varargs(struct subtype_tuple_env *env, jl_stenv_t *e, int param)
 {
-    jl_tvar_t *yv1=NULL;
-    jl_value_t *yva = unwrap_1_unionall(env->vty, &yv1);
-    jl_tvar_t *xv1=NULL;
-    jl_value_t *xva = unwrap_1_unionall(env->vtx, &xv1);
-
-    jl_value_t *xp0 = jl_unwrap_vararg(xva); jl_value_t *xp1 = jl_unwrap_vararg_num(xva);
-    jl_value_t *yp0 = jl_unwrap_vararg(yva); jl_value_t *yp1 = jl_unwrap_vararg_num(yva);
+    jl_value_t *xp0 = jl_unwrap_vararg(env->vtx); jl_value_t *xp1 = jl_unwrap_vararg_num(env->vtx);
+    jl_value_t *yp0 = jl_unwrap_vararg(env->vty); jl_value_t *yp1 = jl_unwrap_vararg_num(env->vty);
 
     if (!xp1) {
         jl_value_t *yl = yp1;
@@ -982,7 +961,7 @@ constrain_length:
 
         if (ylv && ylv->depth0 != e->invdepth)
             return 0;
-        return subtype(jl_any_type, yp1, e, 2);
+        return subtype((jl_value_t*)jl_any_type, yp1, e, 2);
     }
 
     // Vararg{T,N} <: Vararg{T2,N2}; equate N and N2
@@ -1115,7 +1094,7 @@ loop: // while (i <= lx) {
     // } (from loop:)
 
 done:
-    if (!env->vy && env->j < env->ly && jl_is_vararg_type(jl_tparam(env->yd, env->j)))
+    if (!env->vy && env->j < env->ly && jl_is_vararg_marker(jl_tparam(env->yd, env->j)))
         env->vy += 1;
     if (env->vy && !env->vx && env->lx+1 >= env->ly) {
         // in Tuple{...,tn} <: Tuple{...,Vararg{T,N}}, check (lx+1-ly) <: N
@@ -2681,11 +2660,9 @@ static jl_value_t *intersect_unionall(jl_value_t *t, jl_unionall_t *u, jl_stenv_
 // check n = (length of vararg type v)
 static int intersect_vararg_length(jl_value_t *v, ssize_t n, jl_stenv_t *e, int8_t R)
 {
-    jl_tvar_t *va_p1=NULL;
-    jl_datatype_t *tail = unwrap_1_unionall(v, &va_p1);
-    jl_value_t *N = jl_unwrap_vararg_num(tail);
+    jl_value_t *N = jl_unwrap_vararg_num(v);
     // only do the check if N is free in the tuple type's last parameter
-    if (N && jl_is_typevar(N) && N != (jl_value_t*)va_p1) {
+    if (N && jl_is_typevar(N)) {
         jl_value_t *len = jl_box_long(n);
         JL_GC_PUSH1(&len);
         jl_value_t *il = R ? intersect(len, N, e, 2) : intersect(N, len, e, 2);
@@ -2711,7 +2688,7 @@ static jl_value_t *intersect_varargs(jl_vararg_marker_t *vmx, jl_vararg_marker_t
     if (ii == jl_bottom_type) return jl_bottom_type;
     JL_GC_PUSH2(&ii, &i2);
     if (!xp2 && !yp2) {
-        ii = jl_wrap_vararg(ii, NULL);
+        ii = (jl_value_t*)jl_wrap_vararg(ii, NULL);
         JL_GC_POP();
         return ii;
     }
@@ -2738,7 +2715,7 @@ static jl_value_t *intersect_varargs(jl_vararg_marker_t *vmx, jl_vararg_marker_t
             i2 = jl_bottom_type;
         }
     }
-    ii = i2 == jl_bottom_type ? jl_bottom_type : jl_wrap_vararg(ii, i2);
+    ii = i2 == jl_bottom_type ? (jl_value_t*)jl_bottom_type : (jl_value_t*)jl_wrap_vararg(ii, i2);
     JL_GC_POP();
     return ii;
 }
@@ -2749,8 +2726,8 @@ static jl_value_t *intersect_tuple(jl_datatype_t *xd, jl_datatype_t *yd, jl_sten
     size_t lx = jl_nparams(xd), ly = jl_nparams(yd);
     if (lx == 0 && ly == 0)
         return (jl_value_t*)yd;
-    int vx=0, vy=0, vvx = (lx > 0 && jl_is_vararg_type(jl_tparam(xd, lx-1)));
-    int vvy = (ly > 0 && jl_is_vararg_type(jl_tparam(yd, ly-1)));
+    int vx=0, vy=0, vvx = (lx > 0 && jl_is_vararg_marker(jl_tparam(xd, lx-1)));
+    int vvy = (ly > 0 && jl_is_vararg_marker(jl_tparam(yd, ly-1)));
     if (!vvx && !vvy && lx != ly)
         return jl_bottom_type;
     jl_svec_t *params = jl_alloc_svec(lx > ly ? lx : ly);
@@ -2765,8 +2742,8 @@ static jl_value_t *intersect_tuple(jl_datatype_t *xd, jl_datatype_t *yd, jl_sten
             assert(i == j && i == jl_svec_len(params));
             break;
         }
-        if (xi && jl_is_vararg_type(xi)) vx = 1;
-        if (yi && jl_is_vararg_type(yi)) vy = 1;
+        if (xi && jl_is_vararg_marker(xi)) vx = 1;
+        if (yi && jl_is_vararg_marker(yi)) vy = 1;
         if (xi == NULL || yi == NULL) {
             res = jl_bottom_type;
             if (vx && intersect_vararg_length(xi, ly+1-lx, e, 0))
@@ -3055,7 +3032,7 @@ static jl_value_t *intersect(jl_value_t *x, jl_value_t *y, jl_stenv_t *e, int pa
         record_var_occurrence(lookup(e, (jl_tvar_t*)y), e, param);
         return intersect_var((jl_tvar_t*)y, x, e, 1, param);
     }
-    if (!jl_has_free_typevars(x) && !jl_has_free_typevars(y) && !jl_is_vararg_type(x) && !jl_is_vararg_type(y)) {
+    if (!jl_has_free_typevars(x) && !jl_has_free_typevars(y)) {
         if (jl_subtype(x, y)) return x;
         if (jl_subtype(y, x)) return y;
     }
@@ -3344,7 +3321,7 @@ static int might_intersect_concrete(jl_value_t *a)
     if (jl_is_uniontype(a))
         return might_intersect_concrete(((jl_uniontype_t*)a)->a) ||
                might_intersect_concrete(((jl_uniontype_t*)a)->b);
-    if (jl_is_vararg_type(a))
+    if (jl_is_vararg_marker(a))
         return might_intersect_concrete(jl_unwrap_vararg(a));
     if (jl_is_type_type(a))
         return 1;
@@ -3543,7 +3520,7 @@ static jl_value_t *nth_tuple_elt(jl_datatype_t *t JL_PROPAGATES_ROOT, size_t i) 
     if (i < len-1)
         return jl_tparam(t, i);
     jl_value_t *last = jl_unwrap_unionall(jl_tparam(t, len-1));
-    if (jl_is_vararg_type(last)) {
+    if (jl_is_vararg_marker(last)) {
         jl_value_t *n = jl_unwrap_vararg_num(last);
         if (n && jl_is_long(n) && i >= len-1+jl_unbox_long(n))
             return NULL;
@@ -3632,7 +3609,7 @@ static size_t tuple_full_length(jl_value_t *t)
     size_t n = jl_nparams(t);
     if (n == 0) return 0;
     jl_value_t *last = jl_unwrap_unionall(jl_tparam(t,n-1));
-    if (jl_is_vararg_type(last)) {
+    if (jl_is_vararg_marker(last)) {
         jl_value_t *N = jl_unwrap_vararg_num(last);
         if (jl_is_long(N))
             n += jl_unbox_long(N)-1;
