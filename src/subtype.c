@@ -2736,6 +2736,7 @@ static jl_value_t *intersect_tuple(jl_datatype_t *xd, jl_datatype_t *yd, jl_sten
     size_t i=0, j=0;
     jl_value_t *xi, *yi;
     while (1) {
+        vx = vy = 0;
         xi = i < lx ? jl_tparam(xd, i) : NULL;
         yi = j < ly ? jl_tparam(yd, j) : NULL;
         if (xi == NULL && yi == NULL) {

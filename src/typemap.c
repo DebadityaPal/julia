@@ -109,6 +109,8 @@ static int sig_match_by_type_simple(jl_value_t **types, size_t n, jl_tupletype_t
         jl_value_t *decl = jl_tparam(sig, i);
         jl_value_t *a = types[i];
         jl_value_t *unw = jl_is_unionall(decl) ? ((jl_unionall_t*)decl)->body : decl;
+        if (jl_is_vararg_marker(a))
+            return 0;
         if (jl_is_type_type(unw)) {
             jl_value_t *tp0 = jl_tparam0(unw);
             if (jl_is_type_type(a)) {
