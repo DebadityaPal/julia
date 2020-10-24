@@ -1190,24 +1190,6 @@ static int subtype_tuple(jl_datatype_t *xd, jl_datatype_t *yd, jl_stenv_t *e, in
     return ans;
 }
 
-static int subtype_naked_vararg(jl_datatype_t *xd, jl_datatype_t *yd, jl_stenv_t *e, int param)
-{
-    // Vararg: covariant in first parameter, invariant in second
-    jl_value_t *xp1=jl_unwrap_vararg(xd), *xp2=jl_unwrap_vararg_num(xd), *yp1=jl_unwrap_vararg(yd), *yp2=jl_unwrap_vararg_num(yd);
-    // in Vararg{T1} <: Vararg{T2}, need to check subtype twice to
-    // simulate the possibility of multiple arguments, which is needed
-    // to implement the diagonal rule correctly.
-    if (!subtype(xp1, yp1, e, param)) return 0;
-    if (!subtype(xp1, yp1, e, 1)) return 0;
-    e->invdepth++;
-    e->Rinvdepth++;
-    // Vararg{T,N} <: Vararg{T2,N2}; equate N and N2
-    int ans = forall_exists_equal(xp2, yp2, e);
-    e->invdepth--;
-    e->Rinvdepth--;
-    return ans;
-}
-
 // `param` means we are currently looking at a parameter of a type constructor
 // (as opposed to being outside any type constructor, or comparing variable bounds).
 // this is used to record the positions where type variables occur for the
@@ -1303,8 +1285,8 @@ static int subtype(jl_value_t *x, jl_value_t *y, jl_stenv_t *e, int param)
     }
     if (jl_is_unionall(y))
         return subtype_unionall(x, (jl_unionall_t*)y, e, 1, param);
-    if ((jl_is_datatype(x) || jl_is_vararg_type(x)) &&
-        (jl_is_datatype(y) || jl_is_vararg_type(y))) {
+    assert(!jl_is_vararg_marker(x) && !jl_is_vararg_marker(y));
+    if (jl_is_datatype(x) && jl_is_datatype(y)) {
         if (x == y) return 1;
         if (y == (jl_value_t*)jl_any_type) return 1;
         jl_datatype_t *xd = (jl_datatype_t*)x, *yd = (jl_datatype_t*)y;
@@ -1333,15 +1315,6 @@ static int subtype(jl_value_t *x, jl_value_t *y, jl_stenv_t *e, int param)
             int issub = subtype((jl_value_t*)jl_type_type, y, e, param);
             e->invdepth = saved;
             return issub;
-        }
-        if (jl_is_vararg_marker(xd)) {
-            if (!jl_is_vararg_marker(yd))
-                return 0;
-            // N.B.: This case is only used for raw varargs that are not part
-            // of a tuple (those that are have special handling in subtype_tuple).
-            // Vararg isn't really a proper type, but it does sometimes show up
-            // as e.g. Type{Vararg}, so we'd like to handle that correctly.
-            return subtype_naked_vararg(xd, yd, e, param);
         }
         while (xd != jl_any_type && xd->name != yd->name) {
             if (xd->super == NULL)
@@ -2723,6 +2696,51 @@ static int intersect_vararg_length(jl_value_t *v, ssize_t n, jl_stenv_t *e, int8
     return 1;
 }
 
+static jl_value_t *intersect_invariant(jl_value_t *x, jl_value_t *y, jl_stenv_t *e);
+static jl_value_t *intersect_varargs(jl_vararg_marker_t *vmx, jl_vararg_marker_t *vmy, jl_stenv_t *e, int param)
+{
+    // Vararg: covariant in first parameter, invariant in second
+    jl_value_t *xp1=jl_unwrap_vararg(vmx), *xp2=jl_unwrap_vararg_num(vmx),
+                *yp1=jl_unwrap_vararg(vmy), *yp2=jl_unwrap_vararg_num(vmy);
+    // in Vararg{T1} <: Vararg{T2}, need to check subtype twice to
+    // simulate the possibility of multiple arguments, which is needed
+    // to implement the diagonal rule correctly.
+    if (intersect(xp1, yp1, e, param==0 ? 1 : param) == jl_bottom_type)
+        return jl_bottom_type;
+    jl_value_t *i2=NULL, *ii = intersect(xp1, yp1, e, 1);
+    if (ii == jl_bottom_type) return jl_bottom_type;
+    if (!xp2 && !yp2)
+        return jl_wrap_vararg(ii, NULL);
+    JL_GC_PUSH2(&ii, &i2);
+    if (xp2 && jl_is_typevar(xp2)) {
+        jl_varbinding_t *xb = lookup(e, (jl_tvar_t*)xp2);
+        if (xb) xb->intvalued = 1;
+        if (!yp2) {
+            i2 = bound_var_below((jl_tvar_t*)xp2, xb, e);
+        }
+    }
+    if (yp2 && jl_is_typevar(yp2)) {
+        jl_varbinding_t *yb = lookup(e, (jl_tvar_t*)yp2);
+        if (yb) yb->intvalued = 1;
+        if (!xp2) {
+            i2 = bound_var_below((jl_tvar_t*)yp2, yb, e);
+        }
+    }
+    if (xp2 && yp2) {
+        // Vararg{T,N} <: Vararg{T2,N2}; equate N and N2
+        i2 = intersect_invariant(xp2, yp2, e);
+        if (i2 == NULL || i2 == jl_bottom_type || (jl_is_long(i2) && jl_unbox_long(i2) < 0) ||
+            !((jl_is_typevar(i2) && ((jl_tvar_t*)i2)->lb == jl_bottom_type &&
+                ((jl_tvar_t*)i2)->ub == (jl_value_t*)jl_any_type) || jl_is_long(i2))) {
+            i2 = jl_bottom_type;
+        }
+    }
+    ii = i2 == jl_bottom_type ? jl_bottom_type : jl_wrap_vararg(ii, i2);
+    JL_GC_POP();
+    return ii;
+}
+
+
 static jl_value_t *intersect_tuple(jl_datatype_t *xd, jl_datatype_t *yd, jl_stenv_t *e, int param)
 {
     size_t lx = jl_nparams(xd), ly = jl_nparams(yd);
@@ -2754,29 +2772,34 @@ static jl_value_t *intersect_tuple(jl_datatype_t *xd, jl_datatype_t *yd, jl_sten
                 res = (jl_value_t*)jl_apply_tuple_type_v(jl_svec_data(params), i);
             break;
         }
-        if (vx && !vy)
-            xi = jl_unwrap_vararg(xi);
-        if (vy && !vx)
-            yi = jl_unwrap_vararg(yi);
         jl_varbinding_t *xb=NULL, *yb=NULL;
+        jl_value_t *ii = NULL;
         if (vx && vy) {
             // {A^n...,Vararg{T,N}} ∩ {Vararg{S,M}} = {(A∩S)^n...,Vararg{T∩S,N}} plus N = M-n
-            jl_value_t *xlen = jl_unwrap_vararg_num(jl_unwrap_unionall(xi));
+            jl_value_t *xlen = jl_unwrap_vararg_num(xi);
             if (xlen && jl_is_typevar(xlen)) {
                 xb = lookup(e, (jl_tvar_t*)xlen);
                 if (xb)
                     xb->offset = ly-lx;
             }
-            jl_value_t *ylen = jl_unwrap_vararg_num(jl_unwrap_unionall(yi));
+            jl_value_t *ylen = jl_unwrap_vararg_num(yi);
             if (ylen && jl_is_typevar(ylen)) {
                 yb = lookup(e, (jl_tvar_t*)ylen);
                 if (yb)
                     yb->offset = lx-ly;
             }
+            ii = intersect_varargs((jl_vararg_marker_t*)xi,
+                                   (jl_vararg_marker_t*)yi,
+                                   e, param);
+            if (xb) xb->offset = 0;
+            if (yb) yb->offset = 0;
+        } else {
+            if (vx)
+                xi = jl_unwrap_vararg(xi);
+            if (vy)
+                yi = jl_unwrap_vararg(yi);
+            ii = intersect(xi, yi, e, param == 0 ? 1 : param);
         }
-        jl_value_t *ii = intersect(xi, yi, e, param == 0 ? 1 : param);
-        if (xb) xb->offset = 0;
-        if (yb) yb->offset = 0;
         if (ii == jl_bottom_type) {
             if (vx && vy) {
                 int len = i > j ? i : j;
@@ -3080,47 +3103,7 @@ static jl_value_t *intersect(jl_value_t *x, jl_value_t *y, jl_stenv_t *e, int pa
     }
     if (jl_is_unionall(y))
         return intersect_unionall(x, (jl_unionall_t*)y, e, 1, param);
-    if (jl_is_vararg_marker(x) && jl_is_vararg_marker(y)) {
-        // Vararg: covariant in first parameter, invariant in second
-        jl_value_t *xp1=jl_unwrap_vararg(x), *xp2=jl_unwrap_vararg_num(x),
-                   *yp1=jl_unwrap_vararg(y), *yp2=jl_unwrap_vararg_num(y);
-        // in Vararg{T1} <: Vararg{T2}, need to check subtype twice to
-        // simulate the possibility of multiple arguments, which is needed
-        // to implement the diagonal rule correctly.
-        if (intersect(xp1, yp1, e, param==0 ? 1 : param) == jl_bottom_type)
-            return jl_bottom_type;
-        jl_value_t *i2=NULL, *ii = intersect(xp1, yp1, e, 1);
-        if (ii == jl_bottom_type) return jl_bottom_type;
-        if (!xp2 && !yp2)
-            return jl_wrap_vararg(ii, NULL);
-        JL_GC_PUSH2(&ii, &i2);
-        if (xp2 && jl_is_typevar(xp2)) {
-            jl_varbinding_t *xb = lookup(e, (jl_tvar_t*)xp2);
-            if (xb) xb->intvalued = 1;
-            if (!yp2) {
-                i2 = bound_var_below((jl_tvar_t*)xp2, xb, e);
-            }
-        }
-        if (yp2 && jl_is_typevar(yp2)) {
-            jl_varbinding_t *yb = lookup(e, (jl_tvar_t*)yp2);
-            if (yb) yb->intvalued = 1;
-            if (!xp2) {
-                i2 = bound_var_below((jl_tvar_t*)yp2, yb, e);
-            }
-        }
-        if (xp2 && yp2) {
-            // Vararg{T,N} <: Vararg{T2,N2}; equate N and N2
-            i2 = intersect_invariant(xp2, yp2, e);
-            if (i2 == NULL || i2 == jl_bottom_type || (jl_is_long(i2) && jl_unbox_long(i2) < 0) ||
-                !((jl_is_typevar(i2) && ((jl_tvar_t*)i2)->lb == jl_bottom_type &&
-                    ((jl_tvar_t*)i2)->ub == (jl_value_t*)jl_any_type) || jl_is_long(i2))) {
-                i2 = jl_bottom_type;
-            }
-        }
-        ii = i2 == jl_bottom_type ? jl_bottom_type : jl_wrap_vararg(ii, i2);
-        JL_GC_POP();
-        return ii;
-    }
+    assert(!jl_is_vararg_marker(x) && !jl_is_vararg_marker(y));
     if (jl_is_datatype(x) && jl_is_datatype(y)) {
         jl_datatype_t *xd = (jl_datatype_t*)x, *yd = (jl_datatype_t*)y;
         if (param < 2) {

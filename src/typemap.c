@@ -148,7 +148,10 @@ static int sig_match_by_type_simple(jl_value_t **types, size_t n, jl_tupletype_t
         if (jl_is_typevar(t))
             t = ((jl_tvar_t*)t)->ub;
         for (; i < n; i++) {
-            if (!jl_subtype(types[i], t))
+            jl_value_t *ti = types[i];
+            if (i == n - 1 && jl_is_vararg_marker(ti))
+                ti = jl_unwrap_vararg(ti);
+            if (!jl_subtype(ti, t))
                 return 0;
         }
         return 1;
