@@ -7507,3 +7507,6 @@ let array = Int[]
 end
 @test compare_union37557(Ref{Union{Int,Vector{Int}}}(1),
                          Ref{Union{Int,Vector{Int}}}(1))
+
+# Issue #30807
+@test_throws TypeError NTuple{<:Any, 3}
