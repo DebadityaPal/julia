@@ -2709,9 +2709,12 @@ static jl_value_t *intersect_varargs(jl_vararg_marker_t *vmx, jl_vararg_marker_t
         return jl_bottom_type;
     jl_value_t *i2=NULL, *ii = intersect(xp1, yp1, e, 1);
     if (ii == jl_bottom_type) return jl_bottom_type;
-    if (!xp2 && !yp2)
-        return jl_wrap_vararg(ii, NULL);
     JL_GC_PUSH2(&ii, &i2);
+    if (!xp2 && !yp2) {
+        ii = jl_wrap_vararg(ii, NULL);
+        JL_GC_POP();
+        return ii;
+    }
     if (xp2 && jl_is_typevar(xp2)) {
         jl_varbinding_t *xb = lookup(e, (jl_tvar_t*)xp2);
         if (xb) xb->intvalued = 1;

@@ -717,7 +717,7 @@ static ssize_t lookup_type_idx_linearvalue(jl_svec_t *cache, jl_value_t *key1, j
     return ~cl;
 }
 
-static jl_value_t *lookup_type(jl_typename_t *tn, jl_value_t **key, size_t n)
+static jl_value_t *lookup_type(jl_typename_t *tn JL_PROPAGATES_ROOT, jl_value_t **key, size_t n)
 {
     JL_TIMING(TYPE_CACHE_LOOKUP);
     unsigned hv = typekey_hash(tn, key, n, 0);
@@ -1239,30 +1239,6 @@ static jl_value_t *extract_wrapper(jl_value_t *t JL_PROPAGATES_ROOT) JL_GLOBALLY
     return NULL;
 }
 
-// convert `Vararg{X, Y} where T` to `Vararg{X where T, Y}` where T doesn't occur free in Y
-static jl_value_t *normalize_vararg(jl_value_t *va)
-{
-    assert(jl_is_vararg_type(va));
-    if (!jl_is_unionall(va)) return va;
-    jl_value_t *body=NULL;
-    JL_GC_PUSH2(&va, &body);
-    jl_unionall_t *ua = (jl_unionall_t*)va;
-    body = normalize_vararg(ua->body);
-    jl_value_t *unw = jl_unwrap_unionall(body);
-    jl_value_t *va0 = jl_unwrap_vararg(unw), *va1 = jl_unwrap_vararg_num(unw);
-    if (jl_has_typevar(va1, ua->var)) {
-        if (body != ua->body)
-            va = jl_type_unionall(ua->var, body);
-    }
-    else {
-        va = jl_type_unionall(ua->var, va0);
-        va = jl_wrap_vararg(va, va1);
-        va = jl_rewrap_unionall(va, body);
-    }
-    JL_GC_POP();
-    return va;
-}
-
 static jl_value_t *_jl_instantiate_type_in_env(jl_value_t *ty, jl_unionall_t *env, jl_value_t **vals, jl_typeenv_t *prev, jl_typestack_t *stack);
 
 static jl_value_t *inst_datatype_inner(jl_datatype_t *dt, jl_svec_t *p, jl_value_t **iparams, size_t ntp,
@@ -1325,20 +1301,9 @@ static jl_value_t *inst_datatype_inner(jl_datatype_t *dt, jl_svec_t *p, jl_value
         jl_value_t *va = jl_unwrap_unionall(last);
         jl_value_t *va0 = jl_unwrap_vararg(va), *va1 = jl_unwrap_vararg_num(va);
         // return same `Tuple` object for types equal to it
-        if (ntp == 1 &&
-             (va0 == (jl_value_t*)jl_any_type &&
-              jl_is_unionall(last) && va1 == (jl_value_t*)((jl_unionall_t*)last)->var)) {
+        if (ntp == 1 && va0 == (jl_value_t*)jl_any_type && !va1) {
             JL_GC_POP();
             return (jl_value_t*)jl_anytuple_type;
-        }
-        int did_normalize = 0;
-        jl_value_t *last2 = normalize_vararg(last);
-        assert(!jl_is_unionall(last2) || !jl_is_unionall(((jl_unionall_t*)last2)->body));
-        if (last2 != last) {
-            last = last2;
-            did_normalize = 1;
-            va = jl_unwrap_unionall(last);
-            va0 = jl_unwrap_vararg(va); va1 = jl_unwrap_vararg_num(va);
         }
         if (va1 && jl_is_long(va1)) {
             ssize_t nt = jl_unbox_long(va1);
@@ -1359,12 +1324,6 @@ static jl_value_t *inst_datatype_inner(jl_datatype_t *dt, jl_svec_t *p, jl_value
                 JL_GC_POP();
                 return ndt;
             }
-        }
-        if (did_normalize) {
-            p = jl_alloc_svec(ntp);
-            for (size_t i = 0; i < ntp-1; i++)
-                jl_svecset(p, i, iparams[i]);
-            jl_svecset(p, ntp-1, last);
         }
     }
 

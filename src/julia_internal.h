@@ -538,7 +538,7 @@ STATIC_INLINE int jl_is_vararg_type(jl_value_t *v) JL_NOTSAFEPOINT
     return jl_is_vararg_marker(jl_unwrap_unionall(v));
 }
 
-STATIC_INLINE jl_value_t *jl_unwrap_vararg(jl_value_t *v) JL_NOTSAFEPOINT
+STATIC_INLINE jl_value_t *jl_unwrap_vararg(jl_value_t *v JL_PROPAGATES_ROOT) JL_NOTSAFEPOINT
 {
     assert(jl_is_vararg_type(v));
     v = jl_unwrap_unionall(v);
@@ -549,7 +549,7 @@ STATIC_INLINE jl_value_t *jl_unwrap_vararg(jl_value_t *v) JL_NOTSAFEPOINT
     return jl_tparam0(v);
 }
 
-STATIC_INLINE jl_value_t *jl_unwrap_vararg_num(jl_value_t *v) JL_NOTSAFEPOINT
+STATIC_INLINE jl_value_t *jl_unwrap_vararg_num(jl_value_t *v JL_PROPAGATES_ROOT) JL_NOTSAFEPOINT
 {
     assert(jl_is_vararg_type(v));
     v = jl_unwrap_unionall(v);
