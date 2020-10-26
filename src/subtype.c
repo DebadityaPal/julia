@@ -968,7 +968,12 @@ constrain_length:
         }
         // set lb to Any. Since `intvalued` is set, we'll interpret that
         // appropriately.
-        return subtype((jl_value_t*)jl_any_type, yp1, e, 2);
+        e->invdepth++;
+        e->Rinvdepth++;
+        int ans = subtype((jl_value_t*)jl_any_type, yp1, e, 2);
+        e->invdepth--;
+        e->Rinvdepth--;
+        return ans;
     }
 
     // Vararg{T,N} <: Vararg{T2,N2}; equate N and N2
