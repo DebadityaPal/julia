@@ -545,6 +545,33 @@ JL_DLLEXPORT jl_value_t *jl_type_union(jl_value_t **ts, size_t n)
 
 JL_DLLEXPORT jl_value_t *jl_type_unionall(jl_tvar_t *v, jl_value_t *body)
 {
+    if (jl_is_vararg_marker(body)) {
+        if (jl_options.depwarn) {
+            if (jl_options.depwarn == JL_OPTIONS_DEPWARN_ERROR)
+                jl_error("Wrapping `Vararg` directly in UnionAll is deprecated (wrap the tuple instead).");
+            jl_printf(JL_STDERR, "WARNING: Wrapping `Vararg` directly in UnionAll is deprecated (wrap the tuple instead).");
+        }
+        jl_vararg_marker_t *vm = (jl_vararg_marker_t*)body;
+        int T_has_tv = vm->T && jl_has_typevar(vm->T, v);
+        int N_has_tv = vm->N && jl_has_typevar(vm->N, v);
+        if (!T_has_tv && !N_has_tv) {
+            return body;
+        }
+        if (T_has_tv && N_has_tv) {
+            jl_error("Wrapping `Vararg` directly in UnionAll is disallowed if the typevar occurs in both `T` and `N`");
+        }
+        if (T_has_tv) {
+            jl_value_t *wrapped = jl_type_unionall(v, vm->T);
+            JL_GC_PUSH1(&wrapped);
+            wrapped = (jl_value_t*)jl_wrap_vararg(wrapped, vm->N);
+            JL_GC_POP();
+            return wrapped;
+        } else {
+            assert(N_has_tv);
+            assert(vm->N == (jl_value_t*)v);
+            return (jl_value_t*)jl_wrap_vararg(vm->T, NULL);
+        }
+    }
     if (!jl_is_type(body) && !jl_is_typevar(body))
         jl_type_error("UnionAll", (jl_value_t*)jl_type_type, body);
     // normalize `T where T<:S` => S
