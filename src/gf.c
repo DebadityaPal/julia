@@ -1051,7 +1051,8 @@ static jl_method_instance_t *cache_method(
                 jl_svec_t *env = matc->sparams;
                 int k, l;
                 for (k = 0, l = jl_svec_len(env); k < l; k++) {
-                    if (jl_is_typevar(jl_svecref(env, k))) {
+                    jl_value_t *env_k = jl_svecref(env, k);
+                    if (jl_is_typevar(env_k) || jl_is_vararg_marker(env_k)) {
                         unmatched_tvars = 1;
                         break;
                     }

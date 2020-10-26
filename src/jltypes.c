@@ -1136,7 +1136,8 @@ static unsigned type_hash(jl_value_t *kj, int *failed) JL_NOTSAFEPOINT
             return 0;
         }
         jl_vararg_marker_t *vm = (jl_vararg_marker_t *)uw;
-        return bitmix(type_hash(vm->T ? vm->T : (jl_value_t*)jl_any_type, failed), vm->N ? type_hash(vm->N, failed) : 0);
+        // 0x064eeaab is just a randomly chosen constant
+        return bitmix(type_hash(vm->T ? vm->T : (jl_value_t*)jl_any_type, failed), vm->N ? type_hash(vm->N, failed) : 0x064eeaab);
     }
     else if (jl_is_uniontype(uw)) {
         if (!*failed) {

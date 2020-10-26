@@ -31,7 +31,7 @@ function argtype_decl(env, n, @nospecialize(sig::DataType), i::Int, nargs, isva:
             if unwrapva(t) === Any
                 return string(s, "..."), ""
             else
-                return s, string_with_env(env, tt) * "..."
+                return s, string_with_env(env, unwrapva(t)) * "..."
             end
         end
         return s, string_with_env(env, "Vararg{", t.T, ", ", t.N, "}")

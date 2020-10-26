@@ -626,7 +626,7 @@ static int var_gt(jl_tvar_t *b, jl_value_t *a, jl_stenv_t *e, int param)
         if (jl_is_typevar(a) && !jl_is_type(bb->lb) && !jl_is_typevar(bb->lb))
             return var_lt((jl_tvar_t*)a, bb->lb, e, param);
     }
-    if (!((bb->ub == (jl_value_t*)jl_any_type && !jl_is_type(a) && !jl_is_typevar(a)) || subtype_ccheck(a, bb->ub, e)))
+    if (!((bb->ub == (jl_value_t*)jl_any_type && !jl_is_type(a) && !jl_is_typevar(a) && !jl_is_vararg_marker(a)) || subtype_ccheck(a, bb->ub, e)))
         return 0;
     bb->lb = simple_join(bb->lb, a);
     assert(bb->lb != (jl_value_t*)b);
@@ -959,12 +959,18 @@ constrain_length:
             return 0;
         }
 
-        if (ylv && (ylv->depth0 != e->invdepth || ylv->occurs_inv))
-            return 0;
-        e->Rinvdepth++;
-        int ans = subtype(jl_any_type, yp1, e, 2);
-        e->Rinvdepth--;
-        return ans;
+        if (ylv) {
+            if (ylv->depth0 != e->invdepth || ylv->occurs_inv)
+                return 0;
+            e->Rinvdepth++;
+            record_var_occurrence(ylv, e, 2);
+            e->Rinvdepth--;
+        }
+        // We need some sort of sentinel here for the lower bound.
+        // When we still had typevars in every Vararg, this was always
+        // a typevar, but now we just use the vararg marker itself as the
+        // sentinel.
+        return var_gt((jl_tvar_t*)yp1, env->vtx, e, 2);
     }
 
     // Vararg{T,N} <: Vararg{T2,N2}; equate N and N2

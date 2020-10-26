@@ -2920,3 +2920,8 @@ g37943(i::Int) = fieldtype(Pair{false, T} where T, i)
 @test only(Base.return_types(f37943, Tuple{Any, Int})) === Union{}
 @test only(Base.return_types(g37943, Tuple{Int})) === Union{Type{Union{}}, Type{Any}}
 
+# N parameter of Vararg is known to be Int
+gVarargInt(x::Int) = 1
+gVarargInt(x) = 2
+fVarargInt(::Tuple{Vararg{Int, N}}) where {N} = Val{gVarargInt(N)}()
+@test only(Base.return_types(fVarargInt, Tuple{Tuple{Vararg{Int}}})) = Val{1}

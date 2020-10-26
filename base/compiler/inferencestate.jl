@@ -192,6 +192,8 @@ function sptypes_from_meth_instance(linfo::MethodInstance)
                     ty = UnionAll(tv, Type{tv})
                 end
             end
+        elseif isa(v, Core.VarargMarker)
+            ty = Int
         else
             ty = Const(v)
         end

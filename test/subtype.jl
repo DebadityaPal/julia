@@ -1690,6 +1690,10 @@ end
 @test !isequal_type(Tuple{Tuple{Vararg{Int}},Tuple{Vararg{Int}}},
                     Tuple{Tuple{Vararg{Int, N}}, Tuple{Vararg{Int, N}}} where N)
 
+let (_, E) = intersection_env(Tuple{Tuple{Vararg{Int}}}, Tuple{Tuple{Vararg{Int,N}}} where N)
+    @test !isa(E[1], Type)
+end
+
 # this is is a timing test, so it would fail on debug builds
 #let T = Type{Tuple{(Union{Int, Nothing} for i = 1:23)..., Union{String, Nothing}}},
 #    S = Type{T} where T<:Tuple{E, Vararg{E}} where E
