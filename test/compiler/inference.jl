@@ -2924,4 +2924,4 @@ g37943(i::Int) = fieldtype(Pair{false, T} where T, i)
 gVarargInt(x::Int) = 1
 gVarargInt(x) = 2
 fVarargInt(::Tuple{Vararg{Int, N}}) where {N} = Val{gVarargInt(N)}()
-@test only(Base.return_types(fVarargInt, Tuple{Tuple{Vararg{Int}}})) = Val{1}
+@test only(Base.return_types(fVarargInt, Tuple{Tuple{Vararg{Int}}})) == Val{1}

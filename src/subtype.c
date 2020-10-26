@@ -726,7 +726,7 @@ static int with_tvar(tvar_callback callback, void *context, jl_unionall_t *u, in
         if (e->envidx < e->envsz) {
             jl_value_t *val;
             if (vb.intvalued && vb.lb == (jl_value_t*)jl_any_type)
-                val = jl_wrap_vararg(NULL, NULL);
+                val = (jl_value_t*)jl_wrap_vararg(NULL, NULL);
             else if (!vb.occurs_inv && vb.lb != jl_bottom_type)
                 val = is_leaf_bound(vb.lb) ? vb.lb : (jl_value_t*)jl_new_typevar(u->var->name, jl_bottom_type, vb.lb);
             else if (vb.lb == vb.ub)
@@ -968,7 +968,7 @@ constrain_length:
         }
         // set lb to Any. Since `intvalued` is set, we'll interpret that
         // appropriately.
-        return subtype(jl_any_type, yp1, e, 2);
+        return subtype((jl_value_t*)jl_any_type, yp1, e, 2);
     }
 
     // Vararg{T,N} <: Vararg{T2,N2}; equate N and N2
