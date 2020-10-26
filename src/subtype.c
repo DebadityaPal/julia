@@ -626,7 +626,7 @@ static int var_gt(jl_tvar_t *b, jl_value_t *a, jl_stenv_t *e, int param)
         if (jl_is_typevar(a) && !jl_is_type(bb->lb) && !jl_is_typevar(bb->lb))
             return var_lt((jl_tvar_t*)a, bb->lb, e, param);
     }
-    if (!((bb->ub == (jl_value_t*)jl_any_type && !jl_is_type(a) && !jl_is_typevar(a) && !jl_is_vararg_marker(a)) || subtype_ccheck(a, bb->ub, e)))
+    if (!((bb->ub == (jl_value_t*)jl_any_type && !jl_is_type(a) && !jl_is_typevar(a)) || subtype_ccheck(a, bb->ub, e)))
         return 0;
     bb->lb = simple_join(bb->lb, a);
     assert(bb->lb != (jl_value_t*)b);
@@ -725,7 +725,9 @@ static int with_tvar(tvar_callback callback, void *context, jl_unionall_t *u, in
         // fill variable values into `envout` up to `envsz`
         if (e->envidx < e->envsz) {
             jl_value_t *val;
-            if (!vb.occurs_inv && vb.lb != jl_bottom_type)
+            if (vb.intvalued && vb.lb == (jl_value_t*)jl_any_type)
+                val = jl_wrap_vararg(NULL, NULL);
+            else if (!vb.occurs_inv && vb.lb != jl_bottom_type)
                 val = is_leaf_bound(vb.lb) ? vb.lb : (jl_value_t*)jl_new_typevar(u->var->name, jl_bottom_type, vb.lb);
             else if (vb.lb == vb.ub)
                 val = vb.lb;
@@ -962,15 +964,11 @@ constrain_length:
         if (ylv) {
             if (ylv->depth0 != e->invdepth || ylv->occurs_inv)
                 return 0;
-            e->Rinvdepth++;
-            record_var_occurrence(ylv, e, 2);
-            e->Rinvdepth--;
+            ylv->intvalued = 1;
         }
-        // We need some sort of sentinel here for the lower bound.
-        // When we still had typevars in every Vararg, this was always
-        // a typevar, but now we just use the vararg marker itself as the
-        // sentinel.
-        return var_gt((jl_tvar_t*)yp1, env->vtx, e, 2);
+        // set lb to Any. Since `intvalued` is set, we'll interpret that
+        // appropriately.
+        return subtype(jl_any_type, yp1, e, 2);
     }
 
     // Vararg{T,N} <: Vararg{T2,N2}; equate N and N2
