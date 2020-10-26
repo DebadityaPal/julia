@@ -959,9 +959,12 @@ constrain_length:
             return 0;
         }
 
-        if (ylv && ylv->depth0 != e->invdepth)
+        if (ylv && (ylv->depth0 != e->invdepth || ylv->occurs_inv))
             return 0;
-        return subtype((jl_value_t*)jl_any_type, yp1, e, 2);
+        e->Rinvdepth++;
+        int ans = subtype(jl_any_type, yp1, e, 2);
+        e->Rinvdepth--;
+        return ans;
     }
 
     // Vararg{T,N} <: Vararg{T2,N2}; equate N and N2
