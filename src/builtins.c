@@ -1007,7 +1007,8 @@ JL_CALLABLE(jl_f_apply_type)
         if (!vm->T) {
             JL_NARGS(apply_type, 2, 3);
             return (jl_value_t*)jl_wrap_vararg(args[1], nargs == 3 ? args[2] : NULL);
-        } else if (!vm->N) {
+        }
+        else if (!vm->N) {
             JL_NARGS(apply_type, 2, 2);
             return (jl_value_t*)jl_wrap_vararg(vm->T, args[1]);
         }

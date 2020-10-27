@@ -255,9 +255,9 @@ function rewrap_unionall(@nospecialize(t), @nospecialize(u))
     return UnionAll(u.var, rewrap_unionall(t, u.body))
 end
 
-function rewrap_unionall(t::Core.VarargMarker, u)
+function rewrap_unionall(t::Core.VarargMarker, @nospecialize(u))
     isdefined(t, :T) || return t
-    if !isdefined(t, :N) || (isdefined(t, :N) && t.N == u.var)
+    if !isdefined(t, :N) || t.N === u.var
         return Vararg{rewrap_unionall(t.T, u)}
     end
     Vararg{rewrap_unionall(t.T, u), t.N}

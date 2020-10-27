@@ -571,7 +571,8 @@ JL_DLLEXPORT jl_value_t *jl_type_unionall(jl_tvar_t *v, jl_value_t *body)
             wrapped = (jl_value_t*)jl_wrap_vararg(wrapped, vm->N);
             JL_GC_POP();
             return wrapped;
-        } else {
+        }
+        else {
             assert(N_has_tv);
             assert(vm->N == (jl_value_t*)v);
             return (jl_value_t*)jl_wrap_vararg(vm->T, NULL);
