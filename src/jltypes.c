@@ -209,8 +209,13 @@ static void find_free_typevars(jl_value_t *v, jl_typeenv_t *env, jl_array_t *out
         find_free_typevars(((jl_uniontype_t*)v)->b, env, out);
     }
     else if (jl_is_vararg_marker(v)) {
-        find_free_typevars(((jl_vararg_marker_t*)v)->T, env, out);
-        find_free_typevars(((jl_vararg_marker_t*)v)->N, env, out);
+        jl_vararg_marker_t *vm = (jl_vararg_marker_t *)v;
+        if (vm->T) {
+            find_free_typevars(vm->T, env, out);
+            if (vm->N) {
+                find_free_typevars(vm->N, env, out);
+            }
+        }
     }
     else if (jl_is_unionall(v)) {
         jl_unionall_t *ua = (jl_unionall_t*)v;
