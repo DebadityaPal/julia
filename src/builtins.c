@@ -170,6 +170,18 @@ static int egal_types(jl_value_t *a, jl_value_t *b, jl_typeenv_t *env) JL_NOTSAF
         }
         return 1;
     }
+    if (dt == jl_vararg_marker_type)
+    {
+        jl_vararg_marker_t *vma = (jl_vararg_marker_t*)a;
+        jl_vararg_marker_t *vmb = (jl_vararg_marker_t*)b;
+        jl_value_t *vmaT = vma->T ? vma->T : (jl_value_t*)jl_any_type;
+        jl_value_t *vmbT = vmb->T ? vmb->T : (jl_value_t*)jl_any_type;
+        if (!egal_types(vmaT, vmbT, env))
+            return 0;
+        if (vma->N && vmb->N)
+            return egal_types(vma->N, vmb->N, env);
+        return !vma->N && !vmb->N;
+    }
     return jl_egal(a, b);
 }
 
@@ -289,6 +301,13 @@ static uintptr_t type_object_id_(jl_value_t *v, jl_varidx_t *env) JL_NOTSAFEPOIN
             h = bitmix(h, type_object_id_(jl_tparam(v, i), env));
         }
         return h;
+    }
+    if (tv == jl_vararg_marker_type) {
+        jl_vararg_marker_t *vm = (jl_vararg_marker_t*)v;
+        jl_value_t *t = vm->T ? vm->T : (jl_value_t*)jl_any_type;
+        jl_value_t *n = vm->N ? vm->N : jl_nothing;
+        return bitmix(type_object_id_(t, env),
+            type_object_id_(n, env));
     }
     return jl_object_id_((jl_value_t*)tv, v);
 }

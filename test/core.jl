@@ -7510,3 +7510,8 @@ end
 
 # Issue #30807
 @test_throws TypeError NTuple{<:Any, 3}
+
+# Redfining types with Vararg
+abstract type RedefineVararg; end
+const RedefineVarargN{N} = Tuple{Vararg{RedefineVararg, N}}
+const RedefineVarargN{N} = Tuple{Vararg{RedefineVararg, N}}
