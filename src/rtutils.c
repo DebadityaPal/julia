@@ -706,6 +706,19 @@ static size_t jl_static_show_x_(JL_STREAM *out, jl_value_t *v, jl_datatype_t *vt
         // avoid printing `typeof(Type)` for `UnionAll`.
         n += jl_printf(out, "UnionAll");
     }
+    else if (vt == jl_vararg_marker_type) {
+        jl_vararg_marker_t *vm = (jl_vararg_marker_t*)v;
+        n += jl_printf(out, "Vararg");
+        if (vm->T) {
+            n += jl_printf(out, "{");
+            n += jl_static_show_x(out, vm->T, depth);
+            if (vm->N) {
+                n += jl_printf(out, ", ");
+                n += jl_static_show_x(out, vm->N, depth);
+            }
+            n += jl_printf(out, "}");
+        }
+    }
     else if (vt == jl_datatype_type) {
         // typeof(v) == DataType, so v is a Type object.
         // Types are printed as a fully qualified name, with parameters, e.g.

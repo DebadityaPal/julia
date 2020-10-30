@@ -447,9 +447,7 @@ function typebound_nothrow(b)
     b = widenconst(b)
     (b ⊑ TypeVar) && return true
     if isType(b)
-        b = unwrap_unionall(b.parameters[1])
-        b === Union{} && return true
-        return !isa(b, DataType) || !isa(b, Core.VarargMarker)
+        return true
     end
     return false
 end
@@ -571,15 +569,7 @@ function typeassert_type_instance(@nospecialize(v), @nospecialize(t))
                 end
             end
         end
-        tt = tuple_tfunc(new_fields)
-        if isa(tt, PartialStruct)
-            if !(widenconst(tt) <: ti)
-                return PartialStruct(ti, tt.fields)
-            end
-        elseif !(tt <: ti)
-            return ti
-        end
-        return tt
+        return tuple_tfunc(new_fields)
     elseif isa(v, Conditional)
         if !(Bool <: t)
             return Bottom
