@@ -7515,3 +7515,6 @@ end
 abstract type RedefineVararg; end
 const RedefineVarargN{N} = Tuple{Vararg{RedefineVararg, N}}
 const RedefineVarargN{N} = Tuple{Vararg{RedefineVararg, N}}
+
+# NTuples with non-types
+@test NTuple{3, 2} == Tuple{3, 3, 3}

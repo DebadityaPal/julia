@@ -977,7 +977,7 @@ JL_CALLABLE(jl_f_isdefined)
 
 // apply_type -----------------------------------------------------------------
 
-static int valid_type_param(jl_value_t *v)
+int jl_valid_type_param(jl_value_t *v)
 {
     if (jl_is_tuple(v)) {
         // NOTE: tuples of symbols are not currently bits types, but have been
@@ -1010,7 +1010,7 @@ JL_CALLABLE(jl_f_apply_type)
                 if (i != nargs-1)
                     jl_type_error_rt("Tuple", "non-final parameter", (jl_value_t*)jl_type_type, pi);
             }
-            else if (!valid_type_param(pi)) {
+            else if (!jl_valid_type_param(pi)) {
                 jl_type_error_rt("Tuple", "parameter", (jl_value_t*)jl_type_type, pi);
             }
         }
@@ -1035,7 +1035,7 @@ JL_CALLABLE(jl_f_apply_type)
     else if (jl_is_unionall(args[0])) {
         for(i=1; i < nargs; i++) {
             jl_value_t *pi = args[i];
-            if (!valid_type_param(pi)) {
+            if (!jl_valid_type_param(pi)) {
                 jl_type_error_rt("Type", "parameter",
                                  jl_isa(pi, (jl_value_t*)jl_number_type) ?
                                  (jl_value_t*)jl_long_type : (jl_value_t*)jl_type_type,

@@ -1786,7 +1786,7 @@ jl_vararg_marker_t *jl_wrap_vararg(jl_value_t *t, jl_value_t *n)
         }
     }
     if (t) {
-        if (!jl_is_typevar(t) && !jl_is_type(t)) {
+        if (!jl_valid_type_param(t)) {
             jl_type_error_rt("Vararg", "type", (jl_value_t*)jl_type_type, t);
         }
     }
